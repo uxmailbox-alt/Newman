@@ -2,15 +2,23 @@ const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
 
-const CREDENTIALS_PATH = path.join(__dirname, '../credentials.json');
-const TOKEN_PATH = path.join(__dirname, '../token.json');
-
 function getAuth() {
-  const { client_id, client_secret, redirect_uris } = JSON.parse(
-    fs.readFileSync(CREDENTIALS_PATH)
-  ).installed;
+  let credentials, token;
+
+  // Railway: load from base64 env vars
+  if (process.env.GOOGLE_CREDENTIALS_B64) {
+    credentials = JSON.parse(Buffer.from(process.env.GOOGLE_CREDENTIALS_B64, 'base64').toString());
+    token = JSON.parse(Buffer.from(process.env.GOOGLE_TOKEN_B64, 'base64').toString());
+  } else {
+    // Local: load from files
+    const CREDENTIALS_PATH = path.join(__dirname, '../credentials.json');
+    const TOKEN_PATH = path.join(__dirname, '../token.json');
+    credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
+    token = JSON.parse(fs.readFileSync(TOKEN_PATH));
+  }
+
+  const { client_id, client_secret, redirect_uris } = credentials.installed;
   const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
-  const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
   oAuth2Client.setCredentials(token);
   return oAuth2Client;
 }
