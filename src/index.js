@@ -44,13 +44,17 @@ app.post('/webhook', async (req, res) => {
     const history = await getHistory(phone);
     const { raw, history: updatedHistory } = await getReply(text, history);
 
-    // Parse JSON from Claude — strip markdown code blocks if present
+    // Parse JSON from Claude — extract first {...} block
     let parsed;
     try {
-      const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON found');
+      const clean = raw.slice(start, end + 1);
       parsed = JSON.parse(clean);
     } catch {
       // Claude returned non-JSON — send as plain text
+      console.error('JSON parse failed. Raw:', raw);
       await saveHistory(phone, updatedHistory);
       await sendMessage(phone, raw);
       return res.sendStatus(200);
