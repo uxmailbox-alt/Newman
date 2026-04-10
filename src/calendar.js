@@ -3,26 +3,26 @@ const fs = require('fs');
 const path = require('path');
 
 function getAuth() {
-  let credentials, token;
+  let client_id, client_secret, redirect_uri, refresh_token;
 
-  // Railway: load from base64 env vars
-  const credB64 = (process.env.GOOGLE_CREDENTIALS_B64 || '').replace(/\s+/g, '');
-  const tokenB64 = (process.env.GOOGLE_TOKEN_B64 || '').replace(/\s+/g, '');
-
-  if (credB64) {
-    credentials = JSON.parse(Buffer.from(credB64, 'base64').toString());
-    token = JSON.parse(Buffer.from(tokenB64, 'base64').toString());
+  // Railway: load from individual env vars
+  if (process.env.GOOGLE_CLIENT_ID) {
+    client_id     = process.env.GOOGLE_CLIENT_ID.trim();
+    client_secret = process.env.GOOGLE_CLIENT_SECRET.trim();
+    redirect_uri  = 'http://localhost';
+    refresh_token = process.env.GOOGLE_REFRESH_TOKEN.trim();
   } else {
     // Local: load from files
-    const CREDENTIALS_PATH = path.join(__dirname, '../credentials.json');
-    const TOKEN_PATH = path.join(__dirname, '../token.json');
-    credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
-    token = JSON.parse(fs.readFileSync(TOKEN_PATH));
+    const creds = JSON.parse(fs.readFileSync(path.join(__dirname, '../credentials.json')));
+    const token = JSON.parse(fs.readFileSync(path.join(__dirname, '../token.json')));
+    client_id     = creds.installed.client_id;
+    client_secret = creds.installed.client_secret;
+    redirect_uri  = creds.installed.redirect_uris[0];
+    refresh_token = token.refresh_token;
   }
 
-  const { client_id, client_secret, redirect_uris } = credentials.installed;
-  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
-  oAuth2Client.setCredentials(token);
+  const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uri);
+  oAuth2Client.setCredentials({ refresh_token });
   return oAuth2Client;
 }
 
