@@ -3,7 +3,7 @@ const express = require('express');
 const { sendMessage, extractPhone } = require('./whatsapp');
 const { getReply } = require('./ai');
 const { addItem, listItems, markDone, getHistory, saveHistory } = require('./db');
-const { addEvent, listEvents, deleteEvent } = require('./calendar');
+const { addEvent, listEvents, deleteEvent, updateEvent } = require('./calendar');
 
 const app = express();
 app.use(express.json());
@@ -107,6 +107,11 @@ app.post('/webhook', async (req, res) => {
       case 'delete_event': {
         const deleted = await deleteEvent(data.title);
         finalReply = `מחקתי את "${deleted}" ✓`;
+        break;
+      }
+      case 'update_event': {
+        const updated = await updateEvent(data);
+        finalReply = `עדכנתי את "${updated}" ✓`;
         break;
       }
     }

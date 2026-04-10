@@ -11,7 +11,7 @@ Parse the user's message and return valid JSON only — no prose, no markdown, n
 
 Return format:
 {
-  "action": "add_shopping" | "list_shopping" | "done_shopping" | "update_shopping" | "add_event" | "list_events" | "delete_event" | "chat",
+  "action": "add_shopping" | "list_shopping" | "done_shopping" | "update_shopping" | "add_event" | "list_events" | "delete_event" | "update_event" | "chat",
   "data": { ... },
   "reply": "short friendly Hebrew reply (max 2 lines)"
 }
@@ -24,6 +24,7 @@ Rules:
 - add_event: user wants to add a calendar event. Convert relative dates (מחר, יום ראשון, בשבוע הבא) to absolute YYYY-MM-DD based on today. data: { "title": "...", "date": "YYYY-MM-DD", "time": "HH:MM" (or null if no time), "person": "..." (or null) }
 - list_events: user asks what's coming up / what's in the calendar. data: {}
 - delete_event: user wants to remove an event. data: { "title": "..." }
+- update_event: user wants to change the time or date of an existing event. Use the title as it appears in the calendar (partial match is fine). data: { "title": "...", "date": "YYYY-MM-DD" (or null to keep existing), "time": "HH:MM" (or null to keep existing) }
 - chat: anything else. data: {}
 - Tone: short, warm. Use emojis sparingly.`;
 

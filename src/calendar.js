@@ -85,16 +85,53 @@ async function listEvents(days = 7) {
   return res.data.items || [];
 }
 
+// Fuzzy match: check if all words in query appear in the event title
+function fuzzyMatch(eventTitle, query) {
+  const title = eventTitle.toLowerCase();
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return words.every(w => title.includes(w));
+}
+
 // Delete an event by searching its title
 async function deleteEvent(title) {
   const calendar = getCalendar();
   const events = await listEvents(30);
-  const match = events.find(e =>
-    e.summary && e.summary.toLowerCase().includes(title.toLowerCase())
-  );
+  const match = events.find(e => e.summary && fuzzyMatch(e.summary, title));
   if (!match) throw new Error(`לא מצאתי אירוע בשם "${title}"`);
   await calendar.events.delete({ calendarId: 'primary', eventId: match.id });
   return match.summary;
 }
 
-module.exports = { addEvent, listEvents, deleteEvent };
+// Update an event's time/date by searching its title
+async function updateEvent({ title, date, time }) {
+  const calendar = getCalendar();
+  const events = await listEvents(30);
+  const match = events.find(e => e.summary && fuzzyMatch(e.summary, title));
+  if (!match) throw new Error(`לא מצאתי אירוע בשם "${title}"`);
+
+  const existingStart = match.start.dateTime || match.start.date;
+  const existingDate = existingStart.slice(0, 10); // YYYY-MM-DD
+  const resolvedDate = date || existingDate;
+
+  let start, end;
+  if (time) {
+    const [h, m] = time.split(':').map(Number);
+    const endHour = String(h + 1).padStart(2, '0');
+    const mins = String(m || 0).padStart(2, '0');
+    start = { dateTime: `${resolvedDate}T${String(h).padStart(2, '0')}:${mins}:00`, timeZone: 'Asia/Jerusalem' };
+    end   = { dateTime: `${resolvedDate}T${endHour}:${mins}:00`, timeZone: 'Asia/Jerusalem' };
+  } else {
+    start = { date: resolvedDate };
+    end   = { date: resolvedDate };
+  }
+
+  await calendar.events.patch({
+    calendarId: 'primary',
+    eventId: match.id,
+    resource: { start, end },
+  });
+
+  return match.summary;
+}
+
+module.exports = { addEvent, listEvents, deleteEvent, updateEvent };
