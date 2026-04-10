@@ -1,7 +1,7 @@
 const https = require('https');
 
-const INSTANCE_ID = process.env.GREENAPI_ID;
-const API_TOKEN = process.env.GREENAPI_TOKEN;
+const INSTANCE_ID = (process.env.GREENAPI_ID || '').split(/\s/)[0];
+const API_TOKEN = (process.env.GREENAPI_TOKEN || '').split(/\s/)[0];
 
 // GreenAPI send message
 // Docs: https://green-api.com/en/docs/api/sending/SendMessage/

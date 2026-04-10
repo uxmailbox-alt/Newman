@@ -1,8 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  (process.env.SUPABASE_URL || '').split(/\s/)[0],
+  (process.env.SUPABASE_ANON_KEY || '').split(/\s/)[0]
 );
 
 async function addItem(phone, item) {
