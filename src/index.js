@@ -126,6 +126,6 @@ app.get('/health', (req, res) => res.send('ok'));
 
 app.listen(PORT, () => {
   console.log(`Family assistant running on port ${PORT}`);
-  console.log(`GOOGLE_CREDENTIALS_B64 set: ${!!(process.env.GOOGLE_CREDENTIALS_B64 || '').replace(/\s+/g, '')}`);
-  console.log(`GOOGLE_TOKEN_B64 set: ${!!(process.env.GOOGLE_TOKEN_B64 || '').replace(/\s+/g, '')}`);
+  console.log(`GOOGLE_CLIENT_ID set: ${!!process.env.GOOGLE_CLIENT_ID}`);
+  console.log(`GOOGLE_REFRESH_TOKEN set: ${!!process.env.GOOGLE_REFRESH_TOKEN}`);
 });
