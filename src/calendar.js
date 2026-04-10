@@ -6,9 +6,12 @@ function getAuth() {
   let credentials, token;
 
   // Railway: load from base64 env vars
-  if (process.env.GOOGLE_CREDENTIALS_B64) {
-    credentials = JSON.parse(Buffer.from(process.env.GOOGLE_CREDENTIALS_B64, 'base64').toString());
-    token = JSON.parse(Buffer.from(process.env.GOOGLE_TOKEN_B64, 'base64').toString());
+  const credB64 = (process.env.GOOGLE_CREDENTIALS_B64 || '').replace(/\s+/g, '');
+  const tokenB64 = (process.env.GOOGLE_TOKEN_B64 || '').replace(/\s+/g, '');
+
+  if (credB64) {
+    credentials = JSON.parse(Buffer.from(credB64, 'base64').toString());
+    token = JSON.parse(Buffer.from(tokenB64, 'base64').toString());
   } else {
     // Local: load from files
     const CREDENTIALS_PATH = path.join(__dirname, '../credentials.json');
