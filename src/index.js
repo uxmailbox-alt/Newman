@@ -44,14 +44,18 @@ app.post('/webhook', async (req, res) => {
     const history = await getHistory(phone);
     const { raw, history: updatedHistory } = await getReply(text, history);
 
-    // Parse JSON from Claude — extract first {...} block
-    let parsed;
+    // Parse JSON from Claude — handle single object or array
+    let actions;
     try {
-      const start = raw.indexOf('{');
-      const end = raw.lastIndexOf('}');
-      if (start === -1 || end === -1) throw new Error('No JSON found');
-      const clean = raw.slice(start, end + 1);
-      parsed = JSON.parse(clean);
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('[')) {
+        actions = JSON.parse(trimmed);
+      } else {
+        const start = raw.indexOf('{');
+        const end = raw.lastIndexOf('}');
+        if (start === -1 || end === -1) throw new Error('No JSON found');
+        actions = [JSON.parse(raw.slice(start, end + 1))];
+      }
     } catch {
       // Claude returned non-JSON — send as plain text
       console.error('JSON parse failed. Raw:', raw);
@@ -60,11 +64,11 @@ app.post('/webhook', async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const { action, data, reply } = parsed;
-    console.log(`Action: ${action} | Data: ${JSON.stringify(data)}`);
+    let finalReply = '';
+    for (const { action, data, reply } of actions) {
+      console.log(`Action: ${action} | Data: ${JSON.stringify(data)}`);
+      if (reply) finalReply = reply;
 
-    // Route to DB
-    let finalReply = reply;
     switch (action) {
       case 'add_shopping':
         await addItem(phone, data.item);
@@ -131,11 +135,12 @@ app.post('/webhook', async (req, res) => {
         finalReply = `עדכנתי את "${updated}" ✓`;
         break;
       }
-    }
+    } // end switch
+    } // end for loop
 
     await saveHistory(phone, updatedHistory);
     await sendMessage(phone, finalReply);
-    console.log(`Reply sent: "${reply}"`);
+    console.log(`Reply sent: "${finalReply}"`);
   } catch (err) {
     console.error('Error:', err.message);
     await sendMessage(phone, 'סליחה, משהו השתבש 🙏').catch(() => {});
