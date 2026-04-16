@@ -30,6 +30,7 @@ Rules:
 - delete_event: user wants to remove an event. data: { "title": "..." }
 - update_event: user wants to change the time or date of an existing event. Use the title as it appears in the calendar (partial match is fine). data: { "title": "...", "date": "YYYY-MM-DD" (or null to keep existing), "time": "HH:MM" (or null to keep existing) }
 - chat: anything else. data: {}
+- reply field: confirm only what THIS action does. Never reference other actions or promise future steps. Never leave reply empty. Keep it to one short sentence.
 - Tone: short, warm. Use emojis sparingly.`;
 
 async function getReply(userMessage, history = []) {
