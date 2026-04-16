@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { sendMessage, extractPhone } = require('./whatsapp');
 const { getReply } = require('./ai');
-const { addItem, listItems, markDone, getHistory, saveHistory } = require('./db');
+const { addItem, listItems, markDone, getHistory, saveHistory, addButcherItem, listButcherItems, markButcherDone } = require('./db');
 const { addEvent, listEvents, deleteEvent, updateEvent } = require('./calendar');
 
 const app = express();
@@ -82,6 +82,23 @@ app.post('/webhook', async (req, res) => {
       case 'update_shopping':
         await markDone(phone, data.old_item);
         await addItem(phone, data.new_item);
+        break;
+      case 'add_butcher':
+        await addButcherItem(phone, data.item);
+        break;
+      case 'list_butcher': {
+        const butcherItems = await listButcherItems(phone);
+        finalReply = butcherItems.length
+          ? `רשימת הקצב:\n${butcherItems.map((i, n) => `${n + 1}. ${i}`).join('\n')}`
+          : 'רשימת הקצב ריקה 🥩';
+        break;
+      }
+      case 'done_butcher':
+        await markButcherDone(phone, data.item);
+        break;
+      case 'update_butcher':
+        await markButcherDone(phone, data.old_item);
+        await addButcherItem(phone, data.new_item);
         break;
       case 'add_event':
         await addEvent(data);

@@ -49,4 +49,31 @@ async function saveHistory(phone, history) {
   if (error) throw error;
 }
 
-module.exports = { addItem, listItems, markDone, getHistory, saveHistory };
+async function addButcherItem(phone, item) {
+  const { error } = await supabase
+    .from('butcher')
+    .insert({ phone, item });
+  if (error) throw error;
+}
+
+async function listButcherItems(phone) {
+  const { data, error } = await supabase
+    .from('butcher')
+    .select('item')
+    .eq('phone', phone)
+    .eq('done', false)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data.map(row => row.item);
+}
+
+async function markButcherDone(phone, item) {
+  const { error } = await supabase
+    .from('butcher')
+    .update({ done: true })
+    .eq('phone', phone)
+    .ilike('item', `%${item}%`);
+  if (error) throw error;
+}
+
+module.exports = { addItem, listItems, markDone, getHistory, saveHistory, addButcherItem, listButcherItems, markButcherDone };
