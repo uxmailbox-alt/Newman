@@ -66,23 +66,51 @@ async function addEvent({ title, date, time, person }) {
   return res.data;
 }
 
-// List upcoming events (next 7 days by default)
-async function listEvents(days = 7) {
+// List events with optional date range and keyword filter
+async function listEvents({ days = 7, date_from = null, date_to = null, tonight = false, keyword = null } = {}) {
   const calendar = getCalendar();
-  const now = new Date();
-  const future = new Date();
-  future.setDate(future.getDate() + days);
+  const tz = 'Asia/Jerusalem';
+
+  let timeMin, timeMax;
+
+  if (date_from) {
+    timeMin = new Date(`${date_from}T00:00:00`);
+  } else {
+    timeMin = new Date();
+  }
+
+  if (date_to) {
+    timeMax = new Date(`${date_to}T23:59:59`);
+  } else {
+    timeMax = new Date(timeMin);
+    timeMax.setDate(timeMax.getDate() + days);
+  }
 
   const res = await calendar.events.list({
     calendarId: 'primary',
-    timeMin: now.toISOString(),
-    timeMax: future.toISOString(),
+    timeMin: timeMin.toISOString(),
+    timeMax: timeMax.toISOString(),
     singleEvents: true,
     orderBy: 'startTime',
-    maxResults: 20,
+    maxResults: 50,
   });
 
-  return res.data.items || [];
+  let events = res.data.items || [];
+
+  if (tonight) {
+    events = events.filter(e => {
+      if (!e.start.dateTime) return false;
+      const hour = new Date(e.start.dateTime).toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: tz });
+      return parseInt(hour) >= 17;
+    });
+  }
+
+  if (keyword) {
+    const kw = keyword.toLowerCase();
+    events = events.filter(e => e.summary && e.summary.toLowerCase().includes(kw));
+  }
+
+  return events;
 }
 
 // Fuzzy match: check if all words in query appear in the event title

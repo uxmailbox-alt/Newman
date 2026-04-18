@@ -2,7 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const { sendMessage, extractPhone } = require('./whatsapp');
 const { getReply } = require('./ai');
-const { addItem, listItems, markDone, getHistory, saveHistory, addButcherItem, listButcherItems, markButcherDone } = require('./db');
+const {
+  getMember, createFamily, addMember,
+  getFacts, saveFact, deleteFact,
+  addItem, listItems, markDone,
+  addButcherItem, listButcherItems, markButcherDone,
+  getHistory, saveHistory,
+} = require('./db');
 const { addEvent, listEvents, deleteEvent, updateEvent } = require('./calendar');
 
 const app = express();
@@ -10,17 +16,21 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
+// Format list lines with attribution — only show "added by X" when it wasn't the current viewer
+function formatListLines(items, viewerName) {
+  return items.map((row, n) => {
+    const by = row.added_by && row.added_by !== viewerName ? ` _(${row.added_by})_` : '';
+    return `${n + 1}. ${row.item}${by}`;
+  }).join('\n');
+}
+
 app.post('/webhook', async (req, res) => {
   console.log('--- Incoming webhook ---');
 
-  // Handle incoming messages from others, and outgoing (for self-testing)
   const messageType = req.body?.typeWebhook;
   const handled = ['incomingMessageReceived', 'outgoingMessageReceived'];
-  if (!handled.includes(messageType)) {
-    return res.sendStatus(200);
-  }
+  if (!handled.includes(messageType)) return res.sendStatus(200);
 
-  // Ignore messages older than 30 seconds — prevents backlog replay on reconnect
   const msgTimestamp = req.body?.timestamp;
   if (msgTimestamp && (Date.now() / 1000) - msgTimestamp > 30) {
     console.log(`Skipping old message (${Math.round((Date.now() / 1000) - msgTimestamp)}s ago)`);
@@ -28,12 +38,8 @@ app.post('/webhook', async (req, res) => {
   }
 
   const phone = extractPhone(req.body);
-
-  // Ignore group chats — only respond to direct messages
   const chatId = req.body?.senderData?.chatId || '';
-  if (chatId.endsWith('@g.us')) {
-    return res.sendStatus(200);
-  }
+  if (chatId.endsWith('@g.us')) return res.sendStatus(200);
 
   const text = req.body?.messageData?.textMessageData?.textMessage || '';
   if (!text) return res.sendStatus(200);
@@ -41,10 +47,15 @@ app.post('/webhook', async (req, res) => {
   console.log(`From: ${phone} | Message: "${text}"`);
 
   try {
-    const history = await getHistory(phone);
-    const { raw, history: updatedHistory } = await getReply(text, history);
+    // Resolve family context
+    let member = await getMember(phone);
+    const facts = member ? await getFacts(member.family_id) : [];
+    const context = { member, facts };
 
-    // Parse JSON from Claude — handle single object or array
+    const history = await getHistory(phone);
+    const { raw, history: updatedHistory } = await getReply(text, history, context);
+
+    // Parse JSON — single object or array
     let actions;
     try {
       const trimmed = raw.trim();
@@ -57,7 +68,6 @@ app.post('/webhook', async (req, res) => {
         actions = [JSON.parse(raw.slice(start, end + 1))];
       }
     } catch {
-      // Claude returned non-JSON — send as plain text
       console.error('JSON parse failed. Raw:', raw);
       await saveHistory(phone, updatedHistory);
       await sendMessage(phone, raw);
@@ -69,48 +79,86 @@ app.post('/webhook', async (req, res) => {
       console.log(`Action: ${action} | Data: ${JSON.stringify(data)}`);
       if (reply) finalReply = reply;
 
+      // Gate family-scoped actions behind registration
+      const needsFamily = !['create_family', 'chat', 'clarify'].includes(action);
+      if (needsFamily && !member) {
+        finalReply = 'היי! קודם בוא נכיר. כתוב לי למשל: "צור משפחה בשם גולן, אני יאיר"';
+        continue;
+      }
+
+      const familyId = member?.family_id;
+      const myName = member?.member_name;
+
       switch (action) {
+        case 'create_family': {
+          if (member) { finalReply = 'כבר אתה חלק ממשפחה ✓'; break; }
+          const fid = await createFamily(data.family_name, phone, data.member_name);
+          member = { phone, family_id: fid, member_name: data.member_name };
+          finalReply = reply || `נוצרה משפחת ${data.family_name}, ברוך הבא ${data.member_name} 👋`;
+          break;
+        }
+        case 'add_member': {
+          await addMember(familyId, data.phone, data.member_name);
+          finalReply = `נוסף ${data.member_name} למשפחה ✓`;
+          break;
+        }
+        case 'remember_fact': {
+          await saveFact(familyId, data.key, data.value);
+          break;
+        }
+        case 'forget_fact': {
+          await deleteFact(familyId, data.key);
+          finalReply = `שכחתי את "${data.key}" ✓`;
+          break;
+        }
+        case 'list_facts': {
+          const rows = await getFacts(familyId);
+          finalReply = rows.length
+            ? `מה שאני זוכר:\n${rows.map(f => `• ${f.key}: ${f.value}`).join('\n')}`
+            : 'עוד לא שמרתי שום דבר 📝';
+          break;
+        }
         case 'add_shopping':
-          await addItem(phone, data.item);
+          await addItem(familyId, data.item, myName);
           break;
         case 'list_shopping': {
-          const items = await listItems(phone);
+          const items = await listItems(familyId);
           finalReply = items.length
-            ? `יש לך ברשימה:\n${items.map((i, n) => `${n + 1}. ${i}`).join('\n')}`
+            ? `יש לכם ברשימה:\n${formatListLines(items, myName)}`
             : 'הרשימה ריקה 🛒';
           break;
         }
         case 'done_shopping':
-          await markDone(phone, data.item);
+          await markDone(familyId, data.item);
           break;
         case 'update_shopping':
-          await markDone(phone, data.old_item);
-          await addItem(phone, data.new_item);
+          await markDone(familyId, data.old_item);
+          await addItem(familyId, data.new_item, myName);
           break;
         case 'add_butcher':
-          await addButcherItem(phone, data.item);
+          await addButcherItem(familyId, data.item, myName);
           break;
         case 'list_butcher': {
-          const butcherItems = await listButcherItems(phone);
-          finalReply = butcherItems.length
-            ? `רשימת הקצב:\n${butcherItems.map((i, n) => `${n + 1}. ${i}`).join('\n')}`
+          const items = await listButcherItems(familyId);
+          finalReply = items.length
+            ? `רשימת הקצב:\n${formatListLines(items, myName)}`
             : 'רשימת הקצב ריקה 🥩';
           break;
         }
         case 'done_butcher':
-          await markButcherDone(phone, data.item);
+          await markButcherDone(familyId, data.item);
           break;
         case 'update_butcher':
-          await markButcherDone(phone, data.old_item);
-          await addButcherItem(phone, data.new_item);
+          await markButcherDone(familyId, data.old_item);
+          await addButcherItem(familyId, data.new_item, myName);
           break;
         case 'add_event':
           await addEvent(data);
           break;
         case 'list_events': {
-          const events = await listEvents(7);
+          const events = await listEvents(data);
           if (!events.length) {
-            finalReply = 'אין אירועים בשבוע הקרוב 📅';
+            finalReply = 'אין אירועים בטווח המבוקש 📅';
           } else {
             const lines = events.map(e => {
               const start = e.start.dateTime || e.start.date;
@@ -121,7 +169,7 @@ app.post('/webhook', async (req, res) => {
                 : '';
               return `• ${e.summary} — ${dateStr}${timeStr ? ' ' + timeStr : ''}`;
             });
-            finalReply = `האירועים הקרובים:\n${lines.join('\n')}`;
+            finalReply = `האירועים:\n${lines.join('\n')}`;
           }
           break;
         }
