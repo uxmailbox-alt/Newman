@@ -110,6 +110,21 @@ async function markButcherDone(familyId, item) {
   if (error) throw error;
 }
 
+// Find who added a given item (checks both shopping and butcher, newest first)
+async function whoAdded(familyId, itemQuery) {
+  const { data: shop } = await supabase
+    .from('shopping').select('item, added_by, done, created_at')
+    .eq('family_id', familyId).ilike('item', `%${itemQuery}%`)
+    .order('created_at', { ascending: false }).limit(1);
+  const { data: butch } = await supabase
+    .from('butcher').select('item, added_by, done, created_at')
+    .eq('family_id', familyId).ilike('item', `%${itemQuery}%`)
+    .order('created_at', { ascending: false }).limit(1);
+  const a = shop?.[0]; const b = butch?.[0];
+  if (a && b) return new Date(a.created_at) > new Date(b.created_at) ? a : b;
+  return a || b || null;
+}
+
 // ---------- History (still per-phone) ----------
 
 async function getHistory(phone) {
@@ -130,5 +145,6 @@ module.exports = {
   getFacts, saveFact, deleteFact,
   addItem, listItems, markDone,
   addButcherItem, listButcherItems, markButcherDone,
+  whoAdded,
   getHistory, saveHistory,
 };

@@ -6,7 +6,7 @@ const {
   getMember, createFamily, addMember,
   getFacts, saveFact, deleteFact,
   addItem, listItems, markDone,
-  addButcherItem, listButcherItems, markButcherDone,
+  addButcherItem, listButcherItems, markButcherDone, whoAdded,
   getHistory, saveHistory,
 } = require('./db');
 const { addEvent, listEvents, deleteEvent, updateEvent } = require('./calendar');
@@ -16,12 +16,8 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// Format list lines with attribution — only show "added by X" when it wasn't the current viewer
-function formatListLines(items, viewerName) {
-  return items.map((row, n) => {
-    const by = row.added_by && row.added_by !== viewerName ? ` _(${row.added_by})_` : '';
-    return `${n + 1}. ${row.item}${by}`;
-  }).join('\n');
+function formatListLines(items) {
+  return items.map((row, n) => `${n + 1}. ${row.item}`).join('\n');
 }
 
 app.post('/webhook', async (req, res) => {
@@ -118,13 +114,24 @@ app.post('/webhook', async (req, res) => {
             : 'עוד לא שמרתי שום דבר 📝';
           break;
         }
+        case 'who_added': {
+          const row = await whoAdded(familyId, data.item);
+          if (!row) {
+            finalReply = `לא מצאתי את "${data.item}" ברשימות`;
+          } else if (!row.added_by) {
+            finalReply = `"${row.item}" נוסף בלי לדעת מי`;
+          } else {
+            finalReply = `${row.added_by} הוסיפ/ה את "${row.item}"`;
+          }
+          break;
+        }
         case 'add_shopping':
           await addItem(familyId, data.item, myName);
           break;
         case 'list_shopping': {
           const items = await listItems(familyId);
           finalReply = items.length
-            ? `יש לכם ברשימה:\n${formatListLines(items, myName)}`
+            ? `יש לכם ברשימה:\n${formatListLines(items)}`
             : 'הרשימה ריקה 🛒';
           break;
         }
@@ -141,7 +148,7 @@ app.post('/webhook', async (req, res) => {
         case 'list_butcher': {
           const items = await listButcherItems(familyId);
           finalReply = items.length
-            ? `רשימת הקצב:\n${formatListLines(items, myName)}`
+            ? `רשימת הקצב:\n${formatListLines(items)}`
             : 'רשימת הקצב ריקה 🥩';
           break;
         }

@@ -26,7 +26,7 @@ You may return an array of actions if the user's message implies multiple action
 
 Return format (single action OR array of these):
 {
-  "action": "add_shopping" | "list_shopping" | "done_shopping" | "update_shopping" | "add_butcher" | "list_butcher" | "done_butcher" | "update_butcher" | "add_event" | "list_events" | "delete_event" | "update_event" | "create_family" | "add_member" | "remember_fact" | "forget_fact" | "list_facts" | "chat" | "clarify",
+  "action": "add_shopping" | "list_shopping" | "done_shopping" | "update_shopping" | "add_butcher" | "list_butcher" | "done_butcher" | "update_butcher" | "add_event" | "list_events" | "delete_event" | "update_event" | "create_family" | "add_member" | "remember_fact" | "forget_fact" | "list_facts" | "who_added" | "chat" | "clarify",
   "data": { ... },
   "reply": "short friendly Hebrew reply (max 2 lines)"
 }
@@ -56,6 +56,7 @@ Rules:
 - remember_fact: the user shared or told you a durable fact about the family worth remembering. ALSO use this implicitly when the user casually mentions a persistent detail (e.g. "הרופא של ניר הוא ד״ר כהן", "אנחנו קונים בשופרסל בבן יהודה"). Choose a concise descriptive key in Hebrew. data: { "key": "...", "value": "..." }
 - forget_fact: user asks to forget something. data: { "key": "..." }
 - list_facts: user asks what you remember. data: {}
+- who_added: user asks who added a specific item to the list (e.g. "מי הוסיף ביצים?", "מי שם את זה?"). data: { "item": "..." }
 - chat: anything else. data: {}
 - clarify: you're unsure what the user means and need more info. data: {}. The reply field is the question to ask.
 
