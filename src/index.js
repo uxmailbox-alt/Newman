@@ -20,7 +20,7 @@ function formatListLines(items) {
   return items.map((row, n) => `${n + 1}. ${row.item}`).join('\n');
 }
 
-app.post('/webhook', async (req, res) => {
+app.post('/webhook', (req, res) => {
   console.log('--- Incoming webhook ---');
 
   const messageType = req.body?.typeWebhook;
@@ -42,6 +42,10 @@ app.post('/webhook', async (req, res) => {
 
   console.log(`From: ${phone} | Message: "${text}"`);
 
+  // Acknowledge immediately so GreenAPI doesn't retry
+  res.sendStatus(200);
+
+  (async () => {
   try {
     // Resolve family context
     let member = await getMember(phone);
@@ -202,8 +206,7 @@ app.post('/webhook', async (req, res) => {
     console.error('Error:', err.message);
     await sendMessage(phone, 'סליחה, משהו השתבש 🙏').catch(() => {});
   }
-
-  res.sendStatus(200);
+  })();
 });
 
 app.get('/health', (req, res) => res.send('ok'));
