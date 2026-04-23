@@ -2,10 +2,10 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const client = new Anthropic({ apiKey: (process.env.ANTHROPIC_API_KEY || '').replace(/\s+/g, '') });
 
-const TODAY = new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jerusalem' });
-const TODAY_ISO = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }); // YYYY-MM-DD
-
 function buildSystemPrompt({ member, facts }) {
+  const now = new Date();
+  const TODAY = now.toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Jerusalem' });
+  const TODAY_ISO = now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' }); // YYYY-MM-DD
   const memberBlock = member
     ? `The user writing to you is "${member.member_name}" (phone ${member.phone}) from family id ${member.family_id}.`
     : `The user writing to you is NOT registered to any family yet. Your ONLY job right now is to greet them in Hebrew and ask them to create a family: they should say something like "צור משפחה בשם X, אני Y". Return a "chat" action with that greeting as the reply.`;
