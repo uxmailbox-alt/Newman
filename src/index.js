@@ -24,8 +24,7 @@ app.post('/webhook', (req, res) => {
   console.log('--- Incoming webhook ---');
 
   const messageType = req.body?.typeWebhook;
-  const handled = ['incomingMessageReceived', 'outgoingMessageReceived'];
-  if (!handled.includes(messageType)) return res.sendStatus(200);
+  if (messageType !== 'incomingMessageReceived') return res.sendStatus(200);
 
   const msgTimestamp = req.body?.timestamp;
   if (msgTimestamp && (Date.now() / 1000) - msgTimestamp > 30) {
@@ -203,7 +202,7 @@ app.post('/webhook', (req, res) => {
     await sendMessage(phone, finalReply);
     console.log(`Reply sent: "${finalReply}"`);
   } catch (err) {
-    console.error('Error:', err.message);
+    console.error('Error:', err.message, err.response?.data || err.stack);
     await sendMessage(phone, 'סליחה, משהו השתבש 🙏').catch(() => {});
   }
   })();
