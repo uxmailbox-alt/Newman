@@ -63,6 +63,7 @@ async function addEvent({ title, date, time, person }) {
     resource: eventBody,
   });
 
+  console.log(`Calendar event created: id=${res.data.id} summary="${res.data.summary}" start=${JSON.stringify(res.data.start)}`);
   return res.data;
 }
 
@@ -123,7 +124,7 @@ function fuzzyMatch(eventTitle, query) {
 // Delete an event by searching its title
 async function deleteEvent(title) {
   const calendar = getCalendar();
-  const events = await listEvents(30);
+  const events = await listEvents({ days: 30 });
   const match = events.find(e => e.summary && fuzzyMatch(e.summary, title));
   if (!match) throw new Error(`לא מצאתי אירוע בשם "${title}"`);
   await calendar.events.delete({ calendarId: 'primary', eventId: match.id });
@@ -133,7 +134,7 @@ async function deleteEvent(title) {
 // Update an event's time/date by searching its title
 async function updateEvent({ title, date, time }) {
   const calendar = getCalendar();
-  const events = await listEvents(30);
+  const events = await listEvents({ days: 30 });
   const match = events.find(e => e.summary && fuzzyMatch(e.summary, title));
   if (!match) throw new Error(`לא מצאתי אירוע בשם "${title}"`);
 
